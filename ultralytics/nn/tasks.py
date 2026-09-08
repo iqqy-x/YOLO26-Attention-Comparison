@@ -20,7 +20,10 @@ from ultralytics.nn.modules import (
     C2PSA,
     C3,
     C3TR,
+    CA,
     ELAN1,
+    EMA,
+    LGECA,
     OBB,
     OBB26,
     PSA,
@@ -76,9 +79,6 @@ from ultralytics.nn.modules import (
     YOLOESegment,
     YOLOESegment26,
     v10Detect,
-    LGECA,
-    EMA,
-    CA
 )
 from ultralytics.utils import (
     DEFAULT_CFG_DICT,
@@ -2068,7 +2068,7 @@ def parse_model(d, ch, verbose=True):
             A2C2f,
             LGECA,
             EMA,
-            CA
+            CA,
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
