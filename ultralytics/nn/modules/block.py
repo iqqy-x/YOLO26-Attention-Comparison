@@ -2080,7 +2080,49 @@ class RealNVP(nn.Module):
         return -0.5 * (z.float() ** 2).sum(-1) - math.log(2 * math.pi) + log_det
 
 class LGECA(nn.Module):
-    pass
+    """Local-Global Enhanced Context Attention (YOLO-RD paper, Sec 3.3, Eq. 8-10)."""
+
+    def __init__(self, c1, c2=None, local_size=5):
+        super().__init__()
+        if c2 is not None and c2 != c1:
+            raise ValueError(f"LGECA does not change channels: c1={c1} != c2={c2}")
+        self.local_size = local_size
+
+        # global branch: pool to 1x1, then mix across channels via conv1d
+        self.gap = nn.AdaptiveAvgPool2d(1)
+        self.gmp = nn.AdaptiveMaxPool2d(1)
+        self.conv_ga = nn.Conv1d(1, 1, kernel_size=3, padding=1, bias=False)
+
+        # local branch: pool to local_size x local_size, preserves spatial layout
+        self.lap = nn.AdaptiveAvgPool2d(local_size)
+        self.lmp = nn.AdaptiveMaxPool2d(local_size)
+        self.conv_la = nn.Conv1d(1, 1, kernel_size=7, padding=3, bias=False)
+
+        self.sigmoid = nn.Sigmoid()
+        self.alpha = nn.Parameter(torch.tensor(0.5))  # learned GA/LA fusion weight
+
+    def forward(self, x):
+        b, c, h, w = x.shape
+
+        ga = self.gap(x) + self.gmp(x)
+        ga = ga.view(b, c, 1).transpose(1, 2)
+        ga = self.conv_ga(ga)
+        ga = ga.transpose(1, 2).view(b, c, 1, 1)
+        w_ga = self.sigmoid(ga)
+
+        s = self.local_size
+        la = self.lap(x) + self.lmp(x)
+        la = la.reshape(b * c, 1, s * s)  # process each channel independently
+        la = self.conv_la(la)
+        la = la.reshape(b, c, s, s)
+        w_la = self.sigmoid(la)
+
+        alpha = torch.clamp(self.alpha, 0.0, 1.0)
+        w_ga_up = F.interpolate(w_ga, size=(s, s), mode="nearest")
+        fused = alpha * w_ga_up + (1 - alpha) * w_la
+        fused = F.interpolate(fused, size=(h, w), mode="nearest")
+
+        return fused * x
 
 class EMA(nn.Module):
     pass
