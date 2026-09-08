@@ -2078,3 +2078,12 @@ class RealNVP(nn.Module):
         z, log_det = self.backward_p(x)
         # Closed-form log N(z; 0, I) in 2-D; fp32 keeps z**2 from overflowing under AMP.
         return -0.5 * (z.float() ** 2).sum(-1) - math.log(2 * math.pi) + log_det
+
+class LGECA(nn.Module):
+    pass
+
+class EMA(nn.Module):
+    pass
+
+class CA(nn.Module):
+    pass
