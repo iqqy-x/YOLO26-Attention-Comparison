@@ -31,7 +31,7 @@ backbone:
   - [-1, 1, SPPF, [1024, 5, 3, True]] # 9
   - [-1, 2, C2PSA, [1024]] # 10
 
-# YOLO26n head
+# YOLO26n head + LGECA
 head:
   - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
   - [[-1, 6], 1, Concat, [1]] # cat backbone P4
@@ -40,16 +40,16 @@ head:
   - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
   - [[-1, 4], 1, Concat, [1]] # cat backbone P3
   - [-1, 2, C3k2, [256, True]] # 16 (P3/8-small)
-  - [-1, 1, LGECA, [256]] # 17
+  - [-1, 1, LGECA, [256, 5]] # 17 LGECA P3
 
   - [-1, 1, Conv, [256, 3, 2]]
   - [[-1, 13], 1, Concat, [1]] # cat head P4
   - [-1, 2, C3k2, [512, True]] # 20 (P4/16-medium)
-  - [-1, 1, LGECA, [512]] # 21
+  - [-1, 1, LGECA, [512, 5]] # 21 LGECA P4
 
   - [-1, 1, Conv, [512, 3, 2]]
   - [[-1, 10], 1, Concat, [1]] # cat head P5
   - [-1, 1, C3k2, [1024, True, 0.5, True]] # 24 (P5/32-large)
-  - [-1, 1, LGECA, [1024]] # 25
+  - [-1, 1, LGECA, [1024, 5]] # 25 LGECA P5
 
   - [[17, 21, 25], 1, Detect, [nc]] # Detect(P3, P4, P5)

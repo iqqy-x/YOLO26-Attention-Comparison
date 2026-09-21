@@ -2080,49 +2080,110 @@ class RealNVP(nn.Module):
         return -0.5 * (z.float() ** 2).sum(-1) - math.log(2 * math.pi) + log_det
 
 class LGECA(nn.Module):
-    """Local-Global Enhanced Context Attention (YOLO-RD paper, Sec 3.3, Eq. 8-10)."""
+    """Local-Global Enhanced Context Attention from YOLO-RD."""
 
-    def __init__(self, c1, c2=None, local_size=5):
+    def __init__(self, c1, c2, local_size=5, alpha_init=0.5):
         super().__init__()
-        if c2 is not None and c2 != c1:
-            raise ValueError(f"LGECA does not change channels: c1={c1} != c2={c2}")
+
+        if c1 != c2:
+            raise ValueError(f"LGECA requires c1 == c2, got c1={c1}, c2={c2}")
+
         self.local_size = local_size
 
-        # global branch: pool to 1x1, then mix across channels via conv1d
-        self.gap = nn.AdaptiveAvgPool2d(1)
-        self.gmp = nn.AdaptiveMaxPool2d(1)
-        self.conv_ga = nn.Conv1d(1, 1, kernel_size=3, padding=1, bias=False)
+        self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.global_max_pool = nn.AdaptiveMaxPool2d(1)
 
-        # local branch: pool to local_size x local_size, preserves spatial layout
-        self.lap = nn.AdaptiveAvgPool2d(local_size)
-        self.lmp = nn.AdaptiveMaxPool2d(local_size)
-        self.conv_la = nn.Conv1d(1, 1, kernel_size=7, padding=3, bias=False)
+        self.local_avg_pool = nn.AdaptiveAvgPool2d(
+            (local_size, local_size)
+        )
+        self.local_max_pool = nn.AdaptiveMaxPool2d(
+            (local_size, local_size)
+        )
 
-        self.sigmoid = nn.Sigmoid()
-        self.alpha = nn.Parameter(torch.tensor(0.5))  # learned GA/LA fusion weight
+        self.global_conv = nn.Conv1d(
+            in_channels=1,
+            out_channels=1,
+            kernel_size=3,
+            padding=1,
+            bias=False,
+        )
+
+        self.local_conv = nn.Conv1d(
+            in_channels=1,
+            out_channels=1,
+            kernel_size=7,
+            padding=3,
+            bias=False,
+        )
+
+        self.alpha = nn.Parameter(
+            torch.tensor(float(alpha_init), dtype=torch.float32)
+        )
 
     def forward(self, x):
         b, c, h, w = x.shape
-
-        ga = self.gap(x) + self.gmp(x)
-        ga = ga.view(b, c, 1).transpose(1, 2)
-        ga = self.conv_ga(ga)
-        ga = ga.transpose(1, 2).view(b, c, 1, 1)
-        w_ga = self.sigmoid(ga)
-
         s = self.local_size
-        la = self.lap(x) + self.lmp(x)
-        la = la.reshape(b * c, 1, s * s)  # process each channel independently
-        la = self.conv_la(la)
-        la = la.reshape(b, c, s, s)
-        w_la = self.sigmoid(la)
 
-        alpha = torch.clamp(self.alpha, 0.0, 1.0)
-        w_ga_up = F.interpolate(w_ga, size=(s, s), mode="nearest")
-        fused = alpha * w_ga_up + (1 - alpha) * w_la
-        fused = F.interpolate(fused, size=(h, w), mode="nearest")
+        global_feature = (
+            self.global_avg_pool(x)
+            + self.global_max_pool(x)
+        )
 
-        return fused * x
+        global_feature = (
+            global_feature
+            .view(b, c, -1)
+            .transpose(-1, -2)
+        )
+
+        global_attention = self.global_conv(global_feature)
+
+        global_attention = (
+            global_attention
+            .transpose(-1, -2)
+            .view(b, c, 1, 1)
+            .sigmoid()
+        )
+
+        local_feature = (
+            self.local_avg_pool(x)
+            + self.local_max_pool(x)
+        )
+
+        local_feature = (
+            local_feature
+            .view(b, c, -1)
+            .transpose(-1, -2)
+            .reshape(b, 1, -1)
+        )
+
+        local_attention = self.local_conv(local_feature)
+
+        local_attention = (
+            local_attention
+            .reshape(b, s * s, c)
+            .transpose(-1, -2)
+            .reshape(b, c, s, s)
+            .sigmoid()
+        )
+
+        global_attention = F.interpolate(
+            global_attention,
+            size=(s, s),
+            mode="nearest",
+        )
+
+        attention = (
+            self.alpha * global_attention
+            + (1.0 - self.alpha) * local_attention
+        )
+
+        attention = F.interpolate(
+            attention,
+            size=(h, w),
+            mode="nearest",
+        )
+
+        return x * attention
 
 class EMA(nn.Module):
     pass
