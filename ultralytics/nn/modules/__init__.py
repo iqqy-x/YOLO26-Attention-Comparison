@@ -23,9 +23,12 @@ from .block import (
     C2PSA,
     C3,
     C3TR,
+    CA,
     CIB,
     DFL,
     ELAN1,
+    EMA,
+    LGECA,
     PSA,
     SPP,
     SPPELAN,
@@ -59,9 +62,6 @@ from .block import (
     ResNetLayer,
     SCDown,
     TorchVision,
-    LGECA,
-    EMA,
-    CA 
 )
 from .conv import (
     CBAM,
@@ -118,10 +118,13 @@ __all__ = (
     "C2PSA",
     "C3",
     "C3TR",
+    "CA",
     "CBAM",
     "CIB",
     "DFL",
     "ELAN1",
+    "EMA",
+    "LGECA",
     "MLP",
     "OBB",
     "OBB26",
@@ -194,7 +197,4 @@ __all__ = (
     "YOLOESegment",
     "YOLOESegment26",
     "v10Detect",
-    "LGECA",
-    "EMA",
-    "CA"
 )
