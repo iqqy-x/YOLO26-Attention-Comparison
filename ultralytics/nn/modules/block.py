@@ -2079,6 +2079,7 @@ class RealNVP(nn.Module):
         # Closed-form log N(z; 0, I) in 2-D; fp32 keeps z**2 from overflowing under AMP.
         return -0.5 * (z.float() ** 2).sum(-1) - math.log(2 * math.pi) + log_det
 
+
 class LGECA(nn.Module):
     """Local-Global Enhanced Context Attention from YOLO-RD."""
 
@@ -2093,12 +2094,8 @@ class LGECA(nn.Module):
         self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
         self.global_max_pool = nn.AdaptiveMaxPool2d(1)
 
-        self.local_avg_pool = nn.AdaptiveAvgPool2d(
-            (local_size, local_size)
-        )
-        self.local_max_pool = nn.AdaptiveMaxPool2d(
-            (local_size, local_size)
-        )
+        self.local_avg_pool = nn.AdaptiveAvgPool2d((local_size, local_size))
+        self.local_max_pool = nn.AdaptiveMaxPool2d((local_size, local_size))
 
         self.global_conv = nn.Conv1d(
             in_channels=1,
@@ -2116,55 +2113,27 @@ class LGECA(nn.Module):
             bias=False,
         )
 
-        self.alpha = nn.Parameter(
-            torch.tensor(float(alpha_init), dtype=torch.float32)
-        )
+        self.alpha = nn.Parameter(torch.tensor(float(alpha_init), dtype=torch.float32))
 
     def forward(self, x):
         b, c, h, w = x.shape
         s = self.local_size
 
-        global_feature = (
-            self.global_avg_pool(x)
-            + self.global_max_pool(x)
-        )
+        global_feature = self.global_avg_pool(x) + self.global_max_pool(x)
 
-        global_feature = (
-            global_feature
-            .view(b, c, -1)
-            .transpose(-1, -2)
-        )
+        global_feature = global_feature.view(b, c, -1).transpose(-1, -2)
 
         global_attention = self.global_conv(global_feature)
 
-        global_attention = (
-            global_attention
-            .transpose(-1, -2)
-            .view(b, c, 1, 1)
-            .sigmoid()
-        )
+        global_attention = global_attention.transpose(-1, -2).view(b, c, 1, 1).sigmoid()
 
-        local_feature = (
-            self.local_avg_pool(x)
-            + self.local_max_pool(x)
-        )
+        local_feature = self.local_avg_pool(x) + self.local_max_pool(x)
 
-        local_feature = (
-            local_feature
-            .view(b, c, -1)
-            .transpose(-1, -2)
-            .reshape(b, 1, -1)
-        )
+        local_feature = local_feature.view(b, c, -1).transpose(-1, -2).reshape(b, 1, -1)
 
         local_attention = self.local_conv(local_feature)
 
-        local_attention = (
-            local_attention
-            .reshape(b, s * s, c)
-            .transpose(-1, -2)
-            .reshape(b, c, s, s)
-            .sigmoid()
-        )
+        local_attention = local_attention.reshape(b, s * s, c).transpose(-1, -2).reshape(b, c, s, s).sigmoid()
 
         global_attention = F.interpolate(
             global_attention,
@@ -2172,10 +2141,7 @@ class LGECA(nn.Module):
             mode="nearest",
         )
 
-        attention = (
-            self.alpha * global_attention
-            + (1.0 - self.alpha) * local_attention
-        )
+        attention = self.alpha * global_attention + (1.0 - self.alpha) * local_attention
 
         attention = F.interpolate(
             attention,
@@ -2185,8 +2151,10 @@ class LGECA(nn.Module):
 
         return x * attention
 
+
 class EMA(nn.Module):
     pass
+
 
 class CA(nn.Module):
     pass
