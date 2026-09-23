@@ -2192,28 +2192,25 @@ class EMA(nn.Module):
 # Coordinate Attention
 class h_sigmoid(nn.Module):
     def __init__(self, inplace=True):
-        super().__init__()
+        super(h_sigmoid, self).__init__()
         self.relu = nn.ReLU6(inplace=inplace)
 
     def forward(self, x):
-        return self.relu(x + 3.0) / 6.0
+        return self.relu(x + 3) / 6
 
 
 class h_swish(nn.Module):
     def __init__(self, inplace=True):
-        super().__init__()
-        self.h_sigmoid = h_sigmoid(inplace=inplace)
+        super(h_swish, self).__init__()
+        self.sigmoid = h_sigmoid(inplace=inplace)
 
     def forward(self, x):
-        return x * self.h_sigmoid(x)
+        return x * self.sigmoid(x)
 
 
 class CA(nn.Module):
-    """Coordinate Attention from Hou et al., CVPR 2021."""
-
     def __init__(self, inp, oup, reduction=32):
-        super().__init__()
-
+        super(CA, self).__init__()
         self.pool_h = nn.AdaptiveAvgPool2d((None, 1))
         self.pool_w = nn.AdaptiveAvgPool2d((1, None))
 
@@ -2228,20 +2225,22 @@ class CA(nn.Module):
 
     def forward(self, x):
         identity = x
-        _, _, h, w = x.shape
 
+        n, c, h, w = x.size()
         x_h = self.pool_h(x)
         x_w = self.pool_w(x).permute(0, 1, 3, 2)
 
-        y = torch.cat((x_h, x_w), dim=2)
+        y = torch.cat([x_h, x_w], dim=2)
         y = self.conv1(y)
         y = self.bn1(y)
         y = self.act(y)
 
-        x_h, x_w = torch.split(y, (h, w), dim=2)
+        x_h, x_w = torch.split(y, [h, w], dim=2)
         x_w = x_w.permute(0, 1, 3, 2)
 
         a_h = self.conv_h(x_h).sigmoid()
         a_w = self.conv_w(x_w).sigmoid()
 
-        return identity * a_h * a_w
+        out = identity * a_w * a_h
+
+        return out
