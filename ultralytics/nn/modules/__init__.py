@@ -61,7 +61,7 @@ from .block import (
     TorchVision,
     LGECA,
     EMA,
-    CA 
+    CA, 
 )
 from .conv import (
     CBAM,
@@ -196,5 +196,5 @@ __all__ = (
     "v10Detect",
     "LGECA",
     "EMA",
-    "CA"
+    "CA",
 )

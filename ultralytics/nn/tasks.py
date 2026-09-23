@@ -78,7 +78,7 @@ from ultralytics.nn.modules import (
     v10Detect,
     LGECA,
     EMA,
-    CA
+    CA,
 )
 from ultralytics.utils import (
     DEFAULT_CFG_DICT,
@@ -2068,7 +2068,7 @@ def parse_model(d, ch, verbose=True):
             A2C2f,
             LGECA,
             EMA,
-            CA
+            CA,
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
