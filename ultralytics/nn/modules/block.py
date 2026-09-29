@@ -39,6 +39,7 @@ __all__ = (
     "C2fPSA",
     "C3Ghost",
     "C3k2",
+    "C3k2LGECA",
     "C3x",
     "CBFuse",
     "CBLinear",
@@ -2185,6 +2186,43 @@ class LGECA(nn.Module):
         )
 
         return x * attention
+
+class C3k2LGECA(C3k2):
+    """C3k2 followed by Local-Global Enhanced Context Attention."""
+
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        c3k: bool = False,
+        e: float = 0.5,
+        attn: bool = False,
+        g: int = 1,
+        shortcut: bool = True,
+        local_size: int = 5,
+        alpha_init: float = 0.5,
+    ):
+        super().__init__(
+            c1=c1,
+            c2=c2,
+            n=n,
+            c3k=c3k,
+            e=e,
+            attn=attn,
+            g=g,
+            shortcut=shortcut,
+        )
+        self.lgeca = LGECA(
+            c1=c2,
+            c2=c2,
+            local_size=local_size,
+            alpha_init=alpha_init,
+        )
+
+    def forward(self, x):
+        return self.lgeca(super().forward(x))
+    
 
 # Efficient Multi-Scale Attention (EMA)
 class EMA(nn.Module):
